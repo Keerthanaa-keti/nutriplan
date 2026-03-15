@@ -1,0 +1,123 @@
+# NutriPlan - Nutrition Planning for Families
+
+## Product Vision
+A family-first nutrition planning platform that helps couples and families eat healthier together. The app imports existing food and grocery data from delivery apps, understands each person's eating patterns, creates personalized meal plans, and manages grocery shopping with price comparison.
+
+## Core Use Case: Keti & Kishore (Bangalore, Kudlu Gate)
+
+### Family Members
+- **Keti (Keerthanaa):** 60kg, eggitarian, 1400 kcal target, 60-90g protein (1-1.5x body weight)
+- **Kishore:** 75kg, non-veg (chicken + eggs), 1800 kcal target, 75-112g protein (1-1.5x body weight)
+
+### Their Meal Patterns
+- **Keti Breakfast:** Egg omelette (2 eggs), or overnight oats (backup)
+- **Keti Lunch:** Rice/millet + daal + sabji (veg), likes sprouts, paneer, millets
+- **Keti Dinner:** Light - pomegranate + yogurt + peanut butter
+- **Keti Snacks:** Nuts, fruits, whey protein, sprouts
+- **Kishore:** Same base meals but with chicken, larger portions, 3 eggs for breakfast
+- **Sunday:** DIY fun cook day together
+
+### Their Grocery Sources
+- Location: Kudlu Gate, Bangalore
+- Preferred brands: Akshayakalpa (dairy), Pintola (PB), The Whole Truth (whey), Farm Connect (paneer), ID (dosa batter)
+- Platforms: BigBasket, Blinkit, Zepto, Swiggy Instamart, FirstClub, DMart
+
+## Product Architecture
+
+### Family-First Design
+- One household = one family. Each family member has their own profile, targets, and diet type
+- **Single family view** on dashboard - shows everyone's targets, aggregate grocery needs
+- **Individual import** - each person connects their own Swiggy/Zomato/grocery app accounts
+- **Pattern detection** - if accounts are shared, AI identifies distinct patterns per person
+- **Aggregated ordering** - weekly grocery list combines all family members' needs into one order
+
+### Home-Cook Scale (Core Feature)
+- Dashboard has a visual scale/slider: **Outside Food ← → Home Cooked**
+- Recommendation: 80% home cooked, 20% outside food
+- When slider moves toward home-cooked:
+  - Plan focuses on groceries and cooking
+  - Asks "What does your family cook with these ingredients?"
+  - Plans future weeks' groceries according to each person's macros
+  - Suggests recipes based on family's past cooking history
+- When slider moves toward outside:
+  - Shows healthier restaurant options
+  - Tracks spending on food delivery
+
+### Master Food List
+- Family maintains a master list of ALL items they use (from past orders + manually added)
+- Weekly meal plan picks from this master list
+- Each item has nutrition data, preferred brand, usual source (which app), price history
+- Items tagged: home-staple, occasional, seasonal
+
+### Restaurant Food Analysis
+When importing food delivery orders (Swiggy/Zomato), each restaurant/dish is analyzed and rated:
+- **Healthy Score** (1-10): Based on estimated nutrition, cooking method, ingredients
+- **Ultra-Processed Flag**: Identifies highly processed items (maida, refined oil, excess sugar)
+- **Satiety Score**: How filling vs calorie-dense (protein+fiber vs empty carbs)
+- **Most Ordered**: Frequency tracking per person
+- **Cost per Calorie**: Value analysis
+
+### Cheat Meal Intelligence
+When a family member wants to indulge:
+- App shows their **favorite foods** from order history
+- Sorted by: most ordered, highest rated, best current offers
+- Compares prices across **Swiggy vs Zomato vs EatSure** etc for the same dish
+- Shows nutrition impact: "This butter chicken adds 650 cal, you have 400 cal budget left"
+- Suggests **smarter cheats**: similar taste, fewer calories
+
+### Chrome Extension (Data Importer + Price Comparator)
+The companion Chrome extension does:
+1. **Import Order History** - Reads internal APIs from Swiggy, Zomato, BigBasket, Blinkit, Zepto, Swiggy Instamart
+2. **Live Price Comparison** - When viewing NutriPlan grocery list, checks prices across all platforms
+3. **Auto-Cart Builder** - Can add items to cart on the chosen platform
+4. **Offer Tracker** - Monitors deals on frequently ordered items
+
+Internal API endpoints used:
+- Swiggy: `/dapi/order/all`, `/dapi/order/details/{id}`
+- Swiggy Instamart: `/api/instamart/order/`
+- Zomato: `/webroutes/user/orders`
+- BigBasket: `/mapi/v3.1.0/order/past-orders`
+- Blinkit: Grofers API internally
+- Zepto: `/api/v2/order/history`
+
+### Two User Types for Onboarding
+1. **New couples** - each person has separate app accounts, we aggregate
+2. **Shared accounts** - one login used by both, we use AI to detect individual patterns (ask user to confirm)
+
+### Grocery Planning Intelligence
+- Auto-generate grocery list from weekly meal plan
+- Groups by category (dairy, grains, produce, protein)
+- Restock scheduler - knows shelf life, suggests restock day
+- Tracks pantry - what's at home vs what to buy
+- Compares prices across BigBasket, Blinkit, Zepto, Swiggy Instamart, FirstClub, DMart
+- Suggests optimal order day (freshness vs price vs delivery)
+
+## Tech Stack
+- **Frontend:** Next.js 16 + TypeScript + Tailwind CSS + shadcn/ui
+- **Backend:** Supabase (PostgreSQL + Auth + Realtime + RLS)
+- **Extension:** Chrome Manifest V3 + TypeScript
+- **Price Scraping:** Playwright (Phase 2)
+- **Charts:** Recharts
+- **Deploy:** Vercel
+
+## Database Tables
+- `profiles` - User profiles with nutrition targets
+- `households` - Family units with invite codes
+- `household_members` - Links profiles to households
+- `food_items` - Master nutrition database (116+ Indian foods seeded)
+- `meal_plans` + `meal_plan_items` - Weekly per-person meal plans
+- `grocery_lists` + `grocery_items` - Shopping lists from meal plans
+- `grocery_prices` - Price tracking across platforms
+- `pantry_items` - What's at home
+- `order_history` - Imported from food/grocery apps
+- `restaurant_items` - Analyzed restaurant dishes with health scores
+
+## Phases
+- **Phase 1 (DONE):** Core meal planner + food database + grocery list + pantry + auth + onboarding
+- **Phase 2 (IN PROGRESS):** Chrome extension + order import + family dashboard + home-cook scale + restaurant analysis
+- **Phase 3:** Apple Health integration + auto-ordering + DIY seasonal recipes + smart restock
+
+## Notion Integration
+- Keti has existing nutrition data in Notion (page ID: 61bfd0e7-63bf-4396-b35f-3c3df5d8a44f)
+- Notion API key available for import
+- Existing databases: Main data, Week plans (Kishore + Keti), Week-Egg+Paneer

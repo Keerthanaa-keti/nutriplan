@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NutriPlan Importer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 360px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafa; }
+    .header { background: linear-gradient(135deg, #16a34a, #15803d); color: white; padding: 16px; }
+    .header h1 { font-size: 18px; font-weight: 700; }
+    .header p { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+    .content { padding: 12px; }
+    .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #6b7280; margin: 12px 0 8px; letter-spacing: 0.5px; }
+    .app-btn { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: white; cursor: pointer; width: 100%; margin-bottom: 8px; transition: all 0.2s; }
+    .app-btn:hover { border-color: #16a34a; background: #f0fdf4; }
+    .app-btn.importing { border-color: #f59e0b; background: #fffbeb; }
+    .app-btn.done { border-color: #16a34a; background: #f0fdf4; }
+    .app-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: white; }
+    .app-info { flex: 1; text-align: left; }
+    .app-name { font-size: 14px; font-weight: 600; color: #111; }
+    .app-desc { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .app-status { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 12px; }
+    .status-ready { background: #f3f4f6; color: #6b7280; }
+    .status-importing { background: #fef3c7; color: #92400e; }
+    .status-done { background: #dcfce7; color: #166534; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .stat { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; text-align: center; }
+    .stat-value { font-size: 20px; font-weight: 700; color: #111; }
+    .stat-label { font-size: 10px; color: #6b7280; margin-top: 2px; }
+    .footer { padding: 12px; border-top: 1px solid #e5e7eb; text-align: center; }
+    .footer a { font-size: 12px; color: #16a34a; text-decoration: none; }
+    .config { padding: 12px; }
+    .config input { width: 100%; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 13px; margin-top: 4px; }
+    .config label { font-size: 12px; color: #374151; font-weight: 500; }
+    .save-btn { background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; margin-top: 8px; width: 100%; }
+    .save-btn:hover { background: #15803d; }
+    .member-tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+    .member-tag.owner { background: #dbeafe; color: #1e40af; }
+    .member-tag.member { background: #fce7f3; color: #9d174d; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>NutriPlan</h1>
+    <p>Import food & grocery history</p>
+  </div>
+
+  <div id="setup-view" class="config" style="display:none;">
+    <label>NutriPlan App URL</label>
+    <input type="text" id="app-url" placeholder="http://localhost:3000" value="http://localhost:3000">
+    <label style="margin-top:8px;display:block;">Your Name (for pattern tagging)</label>
+    <input type="text" id="member-name" placeholder="e.g., Keti">
+    <button class="save-btn" id="save-config">Save & Connect</button>
+  </div>
+
+  <div id="main-view" class="content">
+    <div class="section-title">Food Delivery</div>
+
+    <button class="app-btn" data-app="swiggy" data-type="food_delivery">
+      <div class="app-icon" style="background:#fc8019;">S</div>
+      <div class="app-info">
+        <div class="app-name">Swiggy</div>
+        <div class="app-desc">Food orders & Instamart</div>
+      </div>
+      <span class="app-status status-ready" id="status-swiggy">Import</span>
+    </button>
+
+    <button class="app-btn" data-app="zomato" data-type="food_delivery">
+      <div class="app-icon" style="background:#e23744;">Z</div>
+      <div class="app-info">
+        <div class="app-name">Zomato</div>
+        <div class="app-desc">Food orders</div>
+      </div>
+      <span class="app-status status-ready" id="status-zomato">Import</span>
+    </button>
+
+    <div class="section-title">Groceries</div>
+
+    <button class="app-btn" data-app="bigbasket" data-type="grocery">
+      <div class="app-icon" style="background:#84c225;">B</div>
+      <div class="app-info">
+        <div class="app-name">BigBasket</div>
+        <div class="app-desc">Grocery orders</div>
+      </div>
+      <span class="app-status status-ready" id="status-bigbasket">Import</span>
+    </button>
+
+    <button class="app-btn" data-app="blinkit" data-type="grocery">
+      <div class="app-icon" style="background:#f8cb46;color:#333;">B</div>
+      <div class="app-info">
+        <div class="app-name">Blinkit</div>
+        <div class="app-desc">Grocery orders</div>
+      </div>
+      <span class="app-status status-ready" id="status-blinkit">Import</span>
+    </button>
+
+    <button class="app-btn" data-app="zepto" data-type="grocery">
+      <div class="app-icon" style="background:#7b2d8e;">Z</div>
+      <div class="app-info">
+        <div class="app-name">Zepto</div>
+        <div class="app-desc">Grocery orders</div>
+      </div>
+      <span class="app-status status-ready" id="status-zepto">Import</span>
+    </button>
+
+    <button class="app-btn" data-app="swiggy_instamart" data-type="grocery">
+      <div class="app-icon" style="background:#fc8019;">SI</div>
+      <div class="app-info">
+        <div class="app-name">Swiggy Instamart</div>
+        <div class="app-desc">Grocery orders</div>
+      </div>
+      <span class="app-status status-ready" id="status-swiggy_instamart">Import</span>
+    </button>
+
+    <div class="section-title">Import Summary</div>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="total-orders">0</div>
+        <div class="stat-label">Orders imported</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="total-items">0</div>
+        <div class="stat-label">Unique items</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="http://localhost:3000/dashboard" target="_blank">Open NutriPlan Dashboard &rarr;</a>
+  </div>
+
+  <script src="src/popup.js"></script>
+</body>
+</html>
