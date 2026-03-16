@@ -27,12 +27,25 @@ export default async function DashboardPage() {
   let householdName = '';
 
   if (membership) {
+    // Fetch members and profiles separately to avoid RLS join issues
     const { data: rawMembers } = await supabase
       .from('household_members')
-      .select('profile_id, role, profile:profiles(id, full_name, target_calories, target_protein_g, target_carbs_g, target_fat_g, diet_type, weight_kg)')
+      .select('profile_id, role')
       .eq('household_id', membership.household_id);
 
-    members = (rawMembers || []) as unknown as typeof members;
+    if (rawMembers && rawMembers.length > 0) {
+      const profileIds = rawMembers.map(m => m.profile_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, target_calories, target_protein_g, target_carbs_g, target_fat_g, diet_type, weight_kg')
+        .in('id', profileIds);
+
+      members = rawMembers.map(m => ({
+        profile_id: m.profile_id,
+        role: m.role,
+        profile: (profiles || []).find(p => p.id === m.profile_id) as typeof members[0]['profile'],
+      })).filter(m => m.profile);
+    }
 
     const { data: household } = await supabase
       .from('households')
@@ -42,25 +55,6 @@ export default async function DashboardPage() {
 
     inviteCode = household?.invite_code || '';
     householdName = household?.name || 'Our Home';
-
-    // Get import stats
-    const { count: orderCount } = await supabase
-      .from('order_history')
-      .select('*', { count: 'exact', head: true })
-      .eq('household_id', membership.household_id);
-
-    // Get food vs grocery split
-    const { count: foodOrders } = await supabase
-      .from('order_history')
-      .select('*', { count: 'exact', head: true })
-      .eq('household_id', membership.household_id)
-      .eq('order_type', 'food_delivery');
-
-    const { count: groceryOrders } = await supabase
-      .from('order_history')
-      .select('*', { count: 'exact', head: true })
-      .eq('household_id', membership.household_id)
-      .eq('order_type', 'grocery');
   }
 
   const today = new Date();
