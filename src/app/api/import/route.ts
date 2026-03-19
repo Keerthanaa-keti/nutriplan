@@ -31,13 +31,27 @@ interface ImportPayload {
   profile_id?: string;
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+function jsonResponse(data: object, status = 200) {
+  return NextResponse.json(data, { status, headers: corsHeaders });
+}
+
+export async function OPTIONS() {
+  return jsonResponse({});
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: ImportPayload = await request.json();
     const { platform, member_name, order_type, orders, household_id, profile_id } = body;
 
     if (!orders || orders.length === 0) {
-      return NextResponse.json({ error: 'No orders to import' }, { status: 400 });
+      return jsonResponse({ error: 'No orders to import' }, 400);
     }
 
     // Find profile by name if no profile_id provided
@@ -79,7 +93,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase.from('order_history').insert(orderRows).select('id');
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return jsonResponse({ error: error.message }, 500);
     }
 
     // Analyze and extract unique food items for the master list
@@ -103,7 +117,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       imported: data?.length || 0,
       unique_items: uniqueItems.size,
@@ -111,6 +125,6 @@ export async function POST(request: NextRequest) {
       member_name,
     });
   } catch (err) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonResponse({ error: 'Internal server error' }, 500);
   }
 }
