@@ -65,20 +65,54 @@ When a family member wants to indulge:
 - Shows nutrition impact: "This butter chicken adds 650 cal, you have 400 cal budget left"
 - Suggests **smarter cheats**: similar taste, fewer calories
 
-### Chrome Extension (Data Importer + Price Comparator)
-The companion Chrome extension does:
-1. **Import Order History** - Reads internal APIs from Swiggy, Zomato, BigBasket, Blinkit, Zepto, Swiggy Instamart
-2. **Live Price Comparison** - When viewing NutriPlan grocery list, checks prices across all platforms
-3. **Auto-Cart Builder** - Can add items to cart on the chosen platform
-4. **Offer Tracker** - Monitors deals on frequently ordered items
+### Data Import Strategy
+Two approaches for importing order history:
 
-Internal API endpoints used:
-- Swiggy: `/dapi/order/all`, `/dapi/order/details/{id}`
-- Swiggy Instamart: `/api/instamart/order/`
-- Zomato: `/webroutes/user/orders`
-- BigBasket: `/mapi/v3.1.0/order/past-orders`
-- Blinkit: Grofers API internally
-- Zepto: `/api/v2/order/history`
+#### Approach 1: Chrome Extension (Web-only, limited)
+- Works for Swiggy food delivery (130 orders imported via `/dapi/order/all`)
+- **Known limitations (as of Mar 2026):**
+  - Swiggy Instamart: NO web API for order history, mobile-app-only
+  - BigBasket: API endpoints changed, `/mapi/v3.1.0/order/past-orders` no longer works
+  - Blinkit: `/v2/order/history` returns 404
+  - Zepto: Domain changed from zepto.co to zepto.com, old APIs dead
+
+#### Approach 2: ClawdBot WhatsApp Import (Preferred - Phase 2)
+- User sends "import my orders" to ClawdBot on WhatsApp
+- ClawdBot uses **Playwright headless browser** on server to:
+  1. Open mobile web version of each platform
+  2. Enter user's phone number
+  3. User forwards OTP to ClawdBot via WhatsApp
+  4. Bot enters OTP, logs in, scrapes all order history
+  5. Imports into NutriPlan Supabase
+- **Advantages:** Works with mobile-only APIs (Instamart!), no extension needed, natural UX
+
+### Core Workflow: Notion-Style Master Table → Weekly Planning
+This is the heart of NutriPlan, modeled after Keti's existing Notion workflow:
+
+1. **Master Food Table** (built from imported orders + manual additions)
+   - Every food item the family buys/orders
+   - Per item: name, brand, category, macros (protein/carbs/fat/calories), price, platform, shelf life
+   - Tags: home-staple, occasional, seasonal, subscription-worthy
+   - Preferred platform per item (cheapest or fastest)
+
+2. **Weekly Meal Plan** (picks from Master Table)
+   - Per person per day: breakfast, lunch, dinner, snacks
+   - Auto-calculates daily macros vs targets
+   - Shows cost breakdown per day/week
+   - 80/20 home-cook vs outside-food split
+
+3. **Monday Grocery Planning**
+   - Auto-generates grocery list from next week's meal plan
+   - Compares prices across BigBasket, Blinkit, Zepto, Swiggy Instamart
+   - Suggests optimal platform per item (cheapest) or per order (fewest deliveries)
+   - Groups by: dairy (Mon+Thu), produce (Mon+Thu), pantry staples (monthly)
+   - Identifies subscription candidates: items ordered every week at same qty
+
+4. **Smart Suggestions**
+   - Subscription recommendations: "You buy Akshayakalpa milk every week → subscribe on BigBasket, save 5%"
+   - Refill reminders: "Pintola PB lasts ~3 weeks, time to reorder"
+   - Budget alerts: "This week's grocery is ₹2400 vs usual ₹1800 — paneer biryani ingredients are expensive"
+   - Macro gaps: "Keti is 20g short on protein this week — add 100g paneer or 2 eggs to Wednesday"
 
 ### Two User Types for Onboarding
 1. **New couples** - each person has separate app accounts, we aggregate
@@ -114,8 +148,10 @@ Internal API endpoints used:
 
 ## Phases
 - **Phase 1 (DONE):** Core meal planner + food database + grocery list + pantry + auth + onboarding
-- **Phase 2 (IN PROGRESS):** Chrome extension + order import + family dashboard + home-cook scale + restaurant analysis
-- **Phase 3:** Apple Health integration + auto-ordering + DIY seasonal recipes + smart restock
+- **Phase 2 (DONE):** Chrome extension + Swiggy food import (130 orders) + family dashboard + home-cook scale + import page UX
+- **Phase 2.5 (NEXT):** ClawdBot WhatsApp import + Master Table from orders + weekly macro planning + Monday grocery flow
+- **Phase 3:** Price comparison across platforms + subscription suggestions + refill reminders + budget tracking
+- **Phase 4:** Apple Health integration + auto-ordering + DIY seasonal recipes + smart restock
 
 ## Notion Integration
 - Keti has existing nutrition data in Notion (page ID: 61bfd0e7-63bf-4396-b35f-3c3df5d8a44f)
