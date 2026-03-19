@@ -50,6 +50,9 @@
   "background": {
     "service_worker": "src/background.js"
   },
+  "externally_connectable": {
+    "matches": ["http://localhost:*/*", "https://*.vercel.app/*"]
+  },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

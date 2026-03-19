@@ -1,10 +1,51 @@
 // NutriPlan Extension Background Service Worker
 
+// Handle messages from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SEND_TO_NUTRIPLAN') {
-    // Forward imported data to NutriPlan app
     forwardToApp(message.data).then(sendResponse);
-    return true; // async response
+    return true;
+  }
+  if (message.type === 'PING') {
+    sendResponse({ status: 'ok', version: chrome.runtime.getManifest().version });
+    return true;
+  }
+});
+
+// Handle messages from the web app (externally_connectable)
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (message.type === 'PING') {
+    sendResponse({ status: 'ok', version: chrome.runtime.getManifest().version });
+    return true;
+  }
+  if (message.type === 'START_IMPORT') {
+    const { app, type, memberName } = message;
+    const APP_URLS = {
+      swiggy: 'https://www.swiggy.com/my-account/orders',
+      zomato: 'https://www.zomato.com/users/orders',
+      bigbasket: 'https://www.bigbasket.com/order/order-history/',
+      blinkit: 'https://blinkit.com/orders',
+      zepto: 'https://www.zepto.co/account/orders',
+    };
+
+    const url = APP_URLS[app];
+    if (!url) {
+      sendResponse({ success: false, error: 'Unknown platform' });
+      return true;
+    }
+
+    // Store config and open the platform tab
+    chrome.storage.local.set({
+      activeImport: { app, type },
+      memberName: memberName || '',
+      appUrl: sender.origin || 'http://localhost:3000',
+      configured: true,
+    }).then(() => {
+      chrome.tabs.create({ url, active: true }, (tab) => {
+        sendResponse({ success: true, tabId: tab.id });
+      });
+    });
+    return true;
   }
 });
 
