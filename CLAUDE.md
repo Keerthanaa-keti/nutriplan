@@ -179,9 +179,52 @@ When the user wants to order outside food:
 - `order_history` — Imported from food/grocery apps (130 Swiggy orders)
 - `restaurant_items` — Analyzed restaurant dishes with health scores
 
+## Business Model (Commercialization)
+
+### Product: NutriPlan Bot — WhatsApp-first nutrition & grocery planner for Indian families
+
+### Why WhatsApp
+- 500M+ WhatsApp users in India
+- Everyone already orders groceries on phone — WhatsApp is where they chat about food
+- No app download needed — works on any phone
+- Families share WhatsApp groups — natural for household planning
+
+### Revenue Streams
+1. **Affiliate commissions** (primary): When users order groceries through NutriPlan's recommended platform, earn 2-5% referral commission from BigBasket/Blinkit/Zepto/Swiggy. Each household spends ₹5,000-15,000/month on groceries → ₹100-750/month per household.
+2. **Premium subscription** (₹99-199/month): Free tier gets manual planning + food tracking. Premium gets auto price comparison, cart pre-filling, Monday grocery reminders, macro reports, family sync.
+3. **Brand partnerships**: FMCG brands pay for product recommendations in context. "You buy peanut butter weekly → try Pintola at 20% off this week on BigBasket" (native, relevant, not spammy).
+4. **Data insights** (future): Anonymized grocery pattern data for FMCG/retail companies — what Indian families actually eat, buy, and spend.
+
+### WhatsApp Business API Setup
+- **Current:** Baileys-based (personal WhatsApp, works for dev/testing, NOT for commercial use)
+- **For launch:** Register with Meta's WhatsApp Business API via BSP (Business Solution Provider)
+  - BSPs: Gupshup, Twilio, MessageBird, Infobip (all have India presence)
+  - Requires: Business verification, phone number, privacy policy, use case approval
+  - Cost: ₹0.40-0.80 per conversation (first 1,000 free/month)
+  - Template messages for proactive sends (grocery reminders, price alerts)
+  - Session messages for interactive conversations (free within 24hr window)
+- **Bot number:** Dedicated NutriPlan number (not personal)
+- **Green tick verification** once established
+
+### Scaling Architecture
+- **Multi-tenant Supabase**: Each user/household gets isolated data with RLS
+- **Playwright pool**: Queue-based scraping jobs (1 browser per import, shared for price checks)
+- **Caching**: Price data cached for 6 hours (platforms don't change prices that often)
+- **WhatsApp sessions**: Stateless bot with Supabase session storage (not in-memory)
+
+### Go-to-Market
+1. **MVP (now):** Keti & Kishore use it, refine the workflow
+2. **Beta:** 10-20 friends/colleagues in Bangalore, all on WhatsApp
+3. **Launch:** Instagram/Twitter content → "How I plan my whole week's nutrition + groceries in 2 minutes on WhatsApp"
+4. **Growth:** Referral — "Invite your partner to plan together" (family feature is viral)
+5. **Monetize:** Turn on affiliate links once volume justifies BSP cost
+
+---
+
 ## Phases
 - **Phase 1 (DONE):** Auth + onboarding + dashboard + food database (116 items) + grocery list + pantry
 - **Phase 2 (DONE):** Swiggy import (130 orders) + family dashboard + home-cook scale + import page
-- **Phase 2.5 (NOW):** Master Database per user + Weekly Plan templates + Grocery Days + price display
-- **Phase 3:** ClawdBot import (Instamart, BigBasket, Blinkit, Zepto) + live price comparison + auto-cart
-- **Phase 4:** Subscriptions + refill reminders + budget tracking + Apple Health
+- **Phase 2.5 (NOW):** Master Database per user + Weekly Plan templates + Grocery Days + Restaurant DB
+- **Phase 3:** ClawdBot WhatsApp integration + Playwright scrapers + OTP relay + price comparison
+- **Phase 4:** WhatsApp Business API registration + affiliate links + premium tier + auto-cart
+- **Phase 5:** Scale — multi-city, more platforms, brand partnerships, data insights
