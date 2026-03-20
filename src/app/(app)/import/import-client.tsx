@@ -25,9 +25,40 @@ export default function ImportClient({ userName, importCounts, totalOrders }: Pr
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [messages, setMessages] = useState<Record<string, string>>({});
 
-  // Try to detect extension on mount
+  // Try to detect extension on mount + listen for postMessage imports
   useEffect(() => {
     detectExtension();
+
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type === 'NUTRIPLAN_IMPORT') {
+        const { platform, member_name, order_type, orders } = event.data;
+        setStatuses(s => ({ ...s, [platform]: 'importing' }));
+        setMessages(m => ({ ...m, [platform]: `Importing ${orders.length} orders...` }));
+
+        fetch('/api/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform, member_name, order_type, orders }),
+        })
+          .then(r => r.json())
+          .then(result => {
+            if (result.success) {
+              setStatuses(s => ({ ...s, [platform]: 'done' }));
+              setMessages(m => ({ ...m, [platform]: `${result.imported} orders imported!` }));
+            } else {
+              setStatuses(s => ({ ...s, [platform]: 'error' }));
+              setMessages(m => ({ ...m, [platform]: result.error }));
+            }
+          })
+          .catch(err => {
+            setStatuses(s => ({ ...s, [platform]: 'error' }));
+            setMessages(m => ({ ...m, [platform]: err.message }));
+          });
+      }
+    }
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   async function detectExtension() {

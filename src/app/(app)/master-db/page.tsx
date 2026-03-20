@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
-import { RestaurantList } from './restaurant-list';
+import { MasterTable } from './master-table';
 
-export default async function RestaurantFoodPage() {
+export default async function MasterDatabasePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -12,18 +12,19 @@ export default async function RestaurantFoodPage() {
     .eq('profile_id', user.id)
     .single();
 
-  const householdId = membership?.household_id || '';
-
   const { data: items } = await supabase
-    .from('restaurant_items')
+    .from('master_food_list')
     .select('*')
-    .eq('household_id', householdId)
-    .order('times_ordered', { ascending: false });
+    .eq('profile_id', user.id)
+    .eq('is_active', true)
+    .order('category')
+    .order('name');
 
   return (
-    <RestaurantList
+    <MasterTable
       items={items || []}
-      householdId={householdId}
+      userId={user.id}
+      householdId={membership?.household_id || ''}
     />
   );
 }

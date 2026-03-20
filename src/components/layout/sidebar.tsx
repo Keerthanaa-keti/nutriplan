@@ -3,16 +3,18 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { LayoutDashboard, CalendarDays, Database, ShoppingCart, PackageOpen, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Database, ShoppingCart, PackageOpen, Settings, LogOut, TableProperties, Utensils } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/meal-plan', label: 'Meal Plan', icon: CalendarDays },
-  { href: '/food-database', label: 'Food Database', icon: Database },
-  { href: '/grocery', label: 'Grocery List', icon: ShoppingCart },
+  { href: '/master-db', label: 'Master Database', icon: TableProperties },
+  { href: '/meal-plan', label: 'Weekly Plan', icon: CalendarDays },
+  { href: '/grocery', label: 'Grocery Days', icon: ShoppingCart },
+  { href: '/restaurants', label: 'Restaurant Food', icon: Utensils },
   { href: '/pantry', label: 'Pantry', icon: PackageOpen },
+  { href: '/food-database', label: 'Nutrition Ref', icon: Database },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

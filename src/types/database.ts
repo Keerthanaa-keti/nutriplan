@@ -2,7 +2,8 @@ export type DietType = 'veg' | 'egg' | 'non_veg' | 'vegan';
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 export type HealthGoal = 'lose' | 'maintain' | 'gain' | 'recomp';
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack_am' | 'snack_pm';
-export type FoodCategory = 'grain' | 'dal' | 'vegetable' | 'fruit' | 'dairy' | 'meat' | 'snack' | 'beverage' | 'condiment' | 'oil' | 'nut_seed' | 'protein_supplement';
+export type FoodCategory = 'grain' | 'dal' | 'vegetable' | 'fruit' | 'dairy' | 'meat' | 'egg' | 'snack' | 'beverage' | 'condiment' | 'oil' | 'nut_seed' | 'protein_supplement' | 'staple' | 'spice';
+export type HealthCategory = 'healthy' | 'slight_cheat' | 'cheat';
 export type GroceryPlatform = 'bigbasket' | 'blinkit' | 'zepto' | 'swiggy_instamart' | 'firstclub' | 'dmart' | 'manual';
 
 export interface Profile {
@@ -174,4 +175,91 @@ export interface WeekPlanView {
       [profileId: string]: PersonDayPlan;
     };
   };
+}
+
+export interface MasterFoodItem {
+  id: string;
+  profile_id?: string;
+  household_id?: string;
+  name: string;
+  brand?: string;
+  category: FoodCategory;
+  serving_size_g?: number;
+  serving_unit: string;
+  calories_per_serving?: number;
+  protein_g?: number;
+  carbs_g?: number;
+  fat_g?: number;
+  fiber_g?: number;
+  daily_quantity: number;
+  cost_per_unit?: number;
+  pack_size?: number;
+  pack_unit: string;
+  cost_per_serving?: number; // generated
+  cost_per_day?: number; // generated
+  cost_per_week?: number; // generated
+  preferred_platform?: string;
+  source: string;
+  typical_meal: string[];
+  is_veg: boolean;
+  is_egg: boolean;
+  shelf_life_days?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RestaurantFoodItem {
+  id: string;
+  household_id?: string;
+  name: string;
+  restaurant_name: string;
+  platform: string;
+  estimated_calories?: number;
+  estimated_protein_g?: number;
+  estimated_carbs_g?: number;
+  estimated_fat_g?: number;
+  healthy_score?: number;
+  satiety_score?: number;
+  health_category?: HealthCategory;
+  is_ultra_processed: boolean;
+  ultra_processed_reason?: string;
+  times_ordered: number;
+  last_ordered_at?: string;
+  total_spent: number;
+  avg_price?: number;
+  is_veg: boolean;
+  is_favorite: boolean;
+  best_platform?: string;
+  best_price?: number;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WeeklyPlanTemplate {
+  id: string;
+  name: string;
+  emoji?: string;
+  description?: string;
+  protein_theme?: string;
+  diet_type?: string;
+  is_system: boolean;
+  created_by?: string;
+  created_at: string;
+}
+
+export interface TemplateMealSlot {
+  id: string;
+  template_id: string;
+  meal_type: string;
+  slot_type: 'fixed' | 'rotating';
+  slot_label?: string;
+  food_item_id?: string;
+  master_food_id?: string;
+  rotation_category?: string;
+  rotation_items?: Record<string, unknown>[];
+  servings: number;
+  sort_order: number;
+  created_at: string;
 }
