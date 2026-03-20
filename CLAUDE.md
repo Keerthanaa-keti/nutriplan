@@ -2,15 +2,61 @@
 
 ## THE CORE CONCEPT (DO NOT DEVIATE)
 
-NutriPlan replaces a manual Notion workflow with an automated system:
-
 ```
 MASTER DATABASE  →  WEEKLY PLAN  →  GROCERY DAYS  →  AUTO-ORDER
-(all food items)    (pick items)    (split into 2     (compare prices,
-                                    delivery days)     order cheapest)
+(all food items)    (pick template)   (Mon + Thu       (compare prices,
+                    (rotating meals)   delivery split)   order cheapest)
 ```
 
-### Step 1: Master Database
+## PRIMARY INTERFACE: WhatsApp Bot (Kiket Fitty)
+
+NutriPlan is a **WhatsApp-first** product. The bot handles both:
+- **Tracking** (daily food intake, macros) — already works via Fitty
+- **Planning** (weekly plan, grocery list, price comparison, import orders)
+
+The web app (localhost:3000) is a **secondary admin dashboard** for:
+- Family view of all data
+- Master database table editing (bulk add/edit)
+- Visual weekly plan grid
+- Restaurant food browsing
+
+### Bot Architecture
+```
+WhatsApp User
+  ↓
+Kiket Fitty Bot (single bot, two modes)
+  ├── TRACKING MODE: "had 3 eggs and rice" → logs food, shows macros
+  └── PLANNING MODE:
+      ├── "plan my week" → suggests template, creates plan
+      ├── "my grocery list" → Monday/Thursday split with costs
+      ├── "compare prices for paneer" → scrapes 4 platforms
+      ├── "import my BigBasket orders" → Playwright + OTP relay
+      └── "what's cheapest this week?" → platform recommendations
+  ↓
+Supabase (shared backend)
+  ↓
+Web Dashboard (family view, admin, data editing)
+```
+
+### How Playwright + OTP Works (AWS)
+```
+1. User: "import my swiggy orders" on WhatsApp
+2. Kiket (on AWS) → launches Playwright headless Chromium
+3. Playwright opens swiggy.com with mobile User-Agent (pretends to be iPhone)
+   — NO mobile emulation needed, just browser with mobile UA + viewport
+4. Enters user's phone number → Swiggy sends OTP via SMS
+5. User sees OTP on phone → forwards to Kiket: "4523"
+6. Kiket enters OTP in Playwright → logged in
+7. Scrapes order history (uses network interception for Instamart APIs)
+8. Saves to Supabase → replies: "Imported 47 orders!"
+9. Session cookies cached → no OTP needed for ~30 days
+```
+
+Anti-bot: `playwright-extra` + `stealth` plugin on AWS hides headless fingerprint.
+
+---
+
+## Step 1: Master Database
 Every user has a **master database** of all food/grocery items they regularly consume.
 Each item has:
 - **Name** (e.g., "Eggs - Suguna", "Paneer - Farm Connect 200g")
@@ -23,79 +69,78 @@ Each item has:
 - **Platform**: where they usually buy it (cheapest or preferred)
 - **Brand**: preferred brand (Akshayakalpa, Pintola, etc.)
 
-This database is populated from:
-1. **Imported orders** (Swiggy, BigBasket, Blinkit, Zepto) — auto-extracted items with prices
-2. **Manual additions** — user adds items they buy offline (DMart, local store)
-3. **Notion import** — Keti's existing Notion master table
+Populated from:
+1. **Imported orders** (Swiggy, BigBasket, Blinkit, Zepto) — via Playwright scrapers
+2. **Food Catalog** — 62 pre-filled Indian grocery items, tap to add
+3. **Manual additions** — user adds items via WhatsApp or web app
 
-### Step 2: Weekly Plan
-Each week, the user creates a **weekly plan** by selecting a plan template or customizing:
+### WhatsApp commands:
+- "add eggs to my list" → adds to master DB
+- "remove paneer" → deactivates item
+- "show my items" → lists all active items with macros
 
-**How the weekly plan works:**
+## Step 2: Weekly Plan
+Each week, the user picks a **protein theme template**:
 
-The week has a **fixed structure** (protein theme) but **daily variety** within it:
+**Templates:**
+- 🥚+🧀 Egg + Paneer Week (eggitarian)
+- 🥚+🍗 Egg + Chicken Week (non-veg)
+- 🥚+🫘 Egg + Sprouts Week (eggitarian)
+- 🧀+🫘 Paneer + Lentils Week (vegetarian)
 
-- **Breakfast**: FIXED every day (e.g., omelette 2-3 eggs — this never changes within a week)
-- **Lunch**: ROTATING base + protein — the base rotates daily (roti / rice / millet), the daal rotates (moong / toor / masoor), the sabji rotates (any seasonal veg). But the protein source stays fixed for the week.
-- **Dinner**: FIXED pattern (light — yogurt, fruits, peanut butter)
-- **Snacks**: FIXED (nuts, fruits, whey)
+**Structure (fixed + rotating daily variety):**
+- Breakfast: FIXED (omelette every day)
+- Lunch: ROTATING base (roti/rice/millet) + rotating dal + rotating sabji + FIXED protein theme
+- Dinner: FIXED (curd + fruit + peanut butter)
+- Snacks: FIXED (nuts, whey, banana)
 
-**Example templates (defines the protein theme for the week):**
-- 🥚+🧀 **Egg + Paneer Week**: eggs every morning + paneer in lunch sabji + rotating base
-- 🥚+🍗 **Egg + Chicken Week**: eggs every morning + chicken in lunch + rotating base
-- 🥚+🫘 **Egg + Sprouts Week**: eggs every morning + sprouts/lentils heavy + millets
-- 🧀+🫘 **Paneer + Lentils Week**: paneer + heavy daal + millet rotation
+### WhatsApp commands:
+- "plan my week" → bot suggests template based on targets, user picks
+- "what's this week's plan?" → shows current plan summary
+- "change to chicken week" → switches template
 
-**The weekly plan shows:**
-- **Per day**: breakfast (fixed) + lunch (base + daal + sabji, rotating) + dinner (fixed) + snacks
-- **Daily macros vs targets**: "Keti: 1420/1450 cal, 82/84g protein ✓"
-- **Weekly cost**: total grocery spend for this plan
-- **Consolidated quantities**: "This week needs: 21 eggs, 700g paneer, 2kg rice, 500g mixed daal, assorted vegetables..."
+## Step 3: Grocery Days
+Once plan is confirmed, auto-split into **2 delivery days**:
 
-The user picks a template (or the app suggests the best fit based on targets), adjusts specific days if needed, and confirms.
+- **Monday**: Full week order (all items)
+- **Thursday**: Fresh restock (dairy, vegetables, fruits — short shelf life items)
 
-### Step 3: Grocery Days
-Once the weekly plan is confirmed, the app auto-generates a **grocery order split across 2 delivery days**:
+### WhatsApp commands:
+- "my grocery list" → shows Monday + Thursday split with costs
+- "what do I order today?" → shows today's list if it's Mon or Thu
+- "order from BigBasket" → fills cart via Playwright (user pays manually)
 
-- **Monday (Day 1)**: Order everything needed for the week
-  - Pantry staples (rice, daal, oil) — if running low
-  - Protein (eggs, paneer/chicken)
-  - Vegetables, fruits
-  - Dairy (milk, curd)
+## Step 4: Auto-Order with Price Comparison
+For each grocery order:
+1. Compare prices across BigBasket, Blinkit, Zepto, Swiggy Instamart
+2. Suggest cheapest platform per item or best single platform
+3. Identify subscription candidates (weekly repeats)
+4. Fill cart on chosen platform via Playwright (user completes payment)
 
-- **Thursday (Day 2)**: Restock fresh items only
-  - Milk, curd (short shelf life)
-  - Fresh vegetables, fruits
-  - Any items that ran out
+### WhatsApp commands:
+- "compare prices for paneer" → scrapes 4 platforms, shows comparison
+- "cheapest for this week?" → full grocery list price comparison
+- "fill cart on BigBasket" → Playwright adds items to cart
 
-The app knows shelf life of each item and splits accordingly.
+### Cron Jobs (automated):
+- **Sunday 8pm**: "This week: 94g protein/day, ₹2,717 groceries. Next week: Egg+Paneer again?"
+- **Monday 9am**: "Your Monday grocery list is ready. 15 items, ₹2,455. Want me to fill the cart on BigBasket?"
+- **Thursday 9am**: "Thursday restock: 5 items, ₹262. Milk, curd, veggies, fruits."
 
-### Step 4: Auto-Order with Price Comparison
-For each grocery order, the app:
-1. **Compares prices** across BigBasket, Blinkit, Zepto, Swiggy Instamart for every item
-2. **Suggests the cheapest platform** per item, or the best single platform for the whole order
-3. **Identifies subscription candidates**: items ordered every week at same quantity → subscribe and save
-4. **Shows total cost**: "This week: ₹1,450 on BigBasket (cheapest) vs ₹1,620 on Blinkit"
-5. Future: **Auto-add to cart** on chosen platform via Playwright/extension
+---
 
-### Restaurant Food Database (Outside Food)
-Separate from the grocery master database. Built from imported Swiggy/Zomato orders (130 orders already imported).
+## Restaurant Food Database
+Separate from grocery. Built from Swiggy/Zomato order history (140 dishes imported).
 
-Each restaurant dish has:
-- **Name** (e.g., "Box Paneer Biryani - Meghana Foods")
-- **Cost**: actual price paid
-- **Approx macros**: estimated calories, protein, carbs, fat
-- **Category**:
-  - 🟢 **Healthy**: high protein, balanced macros, real ingredients (e.g., Quinoa Khichdi from EatFit, Ghee Pudi Idli from Rameshwaram Cafe)
-  - 🟡 **Healthy + Slight Cheat**: decent macros but higher calories/fat (e.g., Paneer Biryani from Meghana, Hot Sour Tofu Bowl from Toit)
-  - 🔴 **Cheat**: indulgent, high cal, low protein-per-cal (e.g., Walnut Brownie from Theobroma, Pizza from Domino's, Ice Cream)
-- **Frequency**: how often ordered
-- **Platform**: Swiggy / Zomato
+Each dish categorized:
+- 🟢 **Healthy**: high protein, balanced (Quinoa Khichdi, Green Masappu Dal)
+- 🟡 **Slight Cheat**: decent but higher cal (Paneer Biryani, Korean Ramen)
+- 🔴 **Cheat**: indulgent (Brownies, Pizza, Ice Cream)
 
-When the user wants to order outside food:
-1. Browse their restaurant database filtered by category (healthy / slight cheat / cheat)
-2. See macros impact: "This adds 450 cal, you have 400 cal budget left today"
-3. Pick and order directly from the app
+### WhatsApp commands:
+- "suggest healthy food" → top healthy dishes from order history
+- "cheat meal options" → cheat dishes sorted by price/frequency
+- "how many calories in biryani?" → shows macro estimate
 
 ---
 
@@ -103,128 +148,38 @@ When the user wants to order outside food:
 
 ### Keti (Keerthanaa)
 - 60kg, eggitarian (eggs + veg, no meat)
-- Target: 1400-1450 kcal/day, 60-90g protein (1-1.5x body weight)
-- Breakfast: 2-3 eggs (omelette/boiled), or overnight oats
-- Lunch: Rice/millet + daal + sabji, likes sprouts, paneer, millets
-- Dinner: Light — pomegranate + yogurt + peanut butter
-- Snacks: Nuts, fruits, whey protein, sprouts
-- Brands: Akshayakalpa (dairy), Pintola (PB), The Whole Truth (whey), Farm Connect (paneer), ID (dosa batter)
+- Target: 1400-1450 kcal/day, 60-90g protein
+- Breakfast: 2-3 eggs, Lunch: rice/roti + dal + sabji + paneer, Dinner: light
+- Brands: Akshayakalpa, Pintola, The Whole Truth, Farm Connect, ID
 
 ### Kishore
 - 75kg, non-veg (chicken + eggs)
-- Target: 1800 kcal/day, 75-112g protein (1-1.5x body weight)
-- Same base meals but with chicken, larger portions, 3 eggs for breakfast
-- Sunday: DIY fun cook day together
+- Target: 1800 kcal/day, 75-112g protein
+- Same structure but with chicken, larger portions
 
-### Location
-- Kudlu Gate, Bangalore
-- Platforms: BigBasket, Blinkit, Zepto, Swiggy Instamart, FirstClub, DMart
-
----
-
-## Data Import
-
-### Current: Chrome Extension (Swiggy food delivery only)
-- 130 Swiggy food delivery orders imported via `/dapi/order/all`
-- Works for restaurant food orders, NOT for grocery/Instamart
-
-### Limitation: Swiggy Instamart
-- NO web API for Instamart order history (mobile-app-only)
-- Chrome extension cannot access it
-
-### Future: ClawdBot WhatsApp Import (solves Instamart + all platforms)
-- Playwright headless browser opens mobile web versions
-- User forwards OTP via WhatsApp
-- Bot logs in, scrapes all order history (including Instamart)
-- Imports into NutriPlan Supabase
-
-### Platform API Status (as of Mar 2026)
-- **Swiggy Food**: ✅ Working (`/dapi/order/all`)
-- **Swiggy Instamart**: ❌ No web API, needs mobile/Playwright
-- **BigBasket**: ❌ API changed, old endpoint dead
-- **Blinkit**: ❌ `/v2/order/history` returns 404
-- **Zepto**: ❌ Domain changed to zepto.com, old APIs dead
-
----
-
-## Notion Reference (Keti's Original Workflow)
-- Notion page ID: 61bfd0e7-63bf-4396-b35f-3c3df5d8a44f
-- Notion API key available for import
-- Databases: Main data, Week plans (Kishore + Keti), Week-Egg+Paneer
-- **Main data table**: all food items with cost/day, cost/week, macros, daily quantity
-- **Week plan table**: pulled rows from main data for that week's plan
-- **Monday**: plan grocery, split into 2 delivery days, order
+### Location: Kudlu Gate, Bangalore
+Platforms: BigBasket, Blinkit, Zepto, Swiggy Instamart, FirstClub, DMart
 
 ---
 
 ## Tech Stack
-- **Frontend:** Next.js 16 + TypeScript + Tailwind CSS + shadcn/ui
-- **Backend:** Supabase (PostgreSQL + Auth + Realtime + RLS)
-- **Extension:** Chrome Manifest V3 (Swiggy import only)
-- **Import (future):** ClawdBot + Playwright for all platforms
-- **Price Comparison (future):** Playwright scraping
-- **Charts:** Recharts
-- **Deploy:** Vercel
+- **Primary:** WhatsApp via ClawdBot/OpenClaw (Kiket Fitty bot)
+- **Backend:** Supabase (PostgreSQL + Auth + RLS)
+- **Web Dashboard:** Next.js 16 + TypeScript + Tailwind + shadcn/ui
+- **Scraping:** Playwright + stealth plugin (runs on AWS)
+- **AI:** Anthropic Claude (food analysis, macro estimation)
+- **Deploy:** AWS (bot + scrapers), Vercel (web dashboard)
 
-## Database Tables
-- `profiles` — User profiles with nutrition targets
-- `households` — Family units with invite codes
-- `household_members` — Links profiles to households
-- `food_items` — Master nutrition database (116+ Indian foods seeded)
-- `master_food_list` — **Per-user master database** (items they actually eat, with cost, macros, daily qty)
-- `meal_plans` + `meal_plan_items` — Weekly per-person meal plans
-- `grocery_lists` + `grocery_items` — Shopping lists from meal plans
-- `grocery_prices` — Price tracking across platforms
-- `pantry_items` — What's at home
-- `order_history` — Imported from food/grocery apps (130 Swiggy orders)
-- `restaurant_items` — Analyzed restaurant dishes with health scores
-
-## Business Model (Commercialization)
-
-### Product: NutriPlan Bot — WhatsApp-first nutrition & grocery planner for Indian families
-
-### Why WhatsApp
-- 500M+ WhatsApp users in India
-- Everyone already orders groceries on phone — WhatsApp is where they chat about food
-- No app download needed — works on any phone
-- Families share WhatsApp groups — natural for household planning
-
-### Revenue Streams
-1. **Affiliate commissions** (primary): When users order groceries through NutriPlan's recommended platform, earn 2-5% referral commission from BigBasket/Blinkit/Zepto/Swiggy. Each household spends ₹5,000-15,000/month on groceries → ₹100-750/month per household.
-2. **Premium subscription** (₹99-199/month): Free tier gets manual planning + food tracking. Premium gets auto price comparison, cart pre-filling, Monday grocery reminders, macro reports, family sync.
-3. **Brand partnerships**: FMCG brands pay for product recommendations in context. "You buy peanut butter weekly → try Pintola at 20% off this week on BigBasket" (native, relevant, not spammy).
-4. **Data insights** (future): Anonymized grocery pattern data for FMCG/retail companies — what Indian families actually eat, buy, and spend.
-
-### WhatsApp Business API Setup
-- **Current:** Baileys-based (personal WhatsApp, works for dev/testing, NOT for commercial use)
-- **For launch:** Register with Meta's WhatsApp Business API via BSP (Business Solution Provider)
-  - BSPs: Gupshup, Twilio, MessageBird, Infobip (all have India presence)
-  - Requires: Business verification, phone number, privacy policy, use case approval
-  - Cost: ₹0.40-0.80 per conversation (first 1,000 free/month)
-  - Template messages for proactive sends (grocery reminders, price alerts)
-  - Session messages for interactive conversations (free within 24hr window)
-- **Bot number:** Dedicated NutriPlan number (not personal)
-- **Green tick verification** once established
-
-### Scaling Architecture
-- **Multi-tenant Supabase**: Each user/household gets isolated data with RLS
-- **Playwright pool**: Queue-based scraping jobs (1 browser per import, shared for price checks)
-- **Caching**: Price data cached for 6 hours (platforms don't change prices that often)
-- **WhatsApp sessions**: Stateless bot with Supabase session storage (not in-memory)
-
-### Go-to-Market
-1. **MVP (now):** Keti & Kishore use it, refine the workflow
-2. **Beta:** 10-20 friends/colleagues in Bangalore, all on WhatsApp
-3. **Launch:** Instagram/Twitter content → "How I plan my whole week's nutrition + groceries in 2 minutes on WhatsApp"
-4. **Growth:** Referral — "Invite your partner to plan together" (family feature is viral)
-5. **Monetize:** Turn on affiliate links once volume justifies BSP cost
-
----
+## Business Model
+1. **Affiliate commissions** (2-5%) from grocery platform orders
+2. **Premium subscription** (₹99-199/month) for price comparison + auto-cart
+3. **Brand partnerships** — contextual product recommendations
+4. **WhatsApp Business API** via BSP (Gupshup/Twilio) for production
 
 ## Phases
-- **Phase 1 (DONE):** Auth + onboarding + dashboard + food database (116 items) + grocery list + pantry
-- **Phase 2 (DONE):** Swiggy import (130 orders) + family dashboard + home-cook scale + import page
-- **Phase 2.5 (NOW):** Master Database per user + Weekly Plan templates + Grocery Days + Restaurant DB
-- **Phase 3:** ClawdBot WhatsApp integration + Playwright scrapers + OTP relay + price comparison
-- **Phase 4:** WhatsApp Business API registration + affiliate links + premium tier + auto-cart
-- **Phase 5:** Scale — multi-city, more platforms, brand partnerships, data insights
+- **Phase 1 (DONE):** Web app MVP — auth, food DB, dashboard, meal plan, grocery, pantry
+- **Phase 2 (DONE):** Swiggy import (130 orders) + restaurant food analysis (140 dishes)
+- **Phase 2.5 (DONE):** Master DB + weekly templates + grocery days + smart food catalog + mobile responsive
+- **Phase 3 (IN PROGRESS):** WhatsApp-first — Kiket Fitty as primary interface, Playwright scrapers, cron jobs
+- **Phase 4:** WhatsApp Business API + affiliate links + premium tier + multi-user launch
+- **Phase 5:** Scale — more cities, more platforms, brand partnerships
