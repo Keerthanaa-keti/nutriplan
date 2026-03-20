@@ -31,20 +31,28 @@ This database is populated from:
 ### Step 2: Weekly Plan
 Each week, the user creates a **weekly plan** by selecting a plan template or customizing:
 
-**Example templates:**
-- 🥚+🧀 **Egg + Paneer Week**: 3 eggs/day + 100g paneer/day + rice + daal + vegetables
-- 🥚+🍗 **Egg + Chicken Week**: 3 eggs/day + 200g chicken/day + rice + daal + vegetables
-- 🥚+🫘 **Egg + Sprouts Week**: 3 eggs/day + sprouts + millets + vegetables
-- 🧀+🫘 **Paneer + Lentils Week**: paneer + moong daal + millets + vegetables
+**How the weekly plan works:**
 
-The weekly plan shows:
-- **Per person per day**: items, quantities, macros (protein/carbs/fat/calories)
-- **Daily totals vs targets**: "Keti: 1420/1450 cal, 82/84g protein ✓"
+The week has a **fixed structure** (protein theme) but **daily variety** within it:
+
+- **Breakfast**: FIXED every day (e.g., omelette 2-3 eggs — this never changes within a week)
+- **Lunch**: ROTATING base + protein — the base rotates daily (roti / rice / millet), the daal rotates (moong / toor / masoor), the sabji rotates (any seasonal veg). But the protein source stays fixed for the week.
+- **Dinner**: FIXED pattern (light — yogurt, fruits, peanut butter)
+- **Snacks**: FIXED (nuts, fruits, whey)
+
+**Example templates (defines the protein theme for the week):**
+- 🥚+🧀 **Egg + Paneer Week**: eggs every morning + paneer in lunch sabji + rotating base
+- 🥚+🍗 **Egg + Chicken Week**: eggs every morning + chicken in lunch + rotating base
+- 🥚+🫘 **Egg + Sprouts Week**: eggs every morning + sprouts/lentils heavy + millets
+- 🧀+🫘 **Paneer + Lentils Week**: paneer + heavy daal + millet rotation
+
+**The weekly plan shows:**
+- **Per day**: breakfast (fixed) + lunch (base + daal + sabji, rotating) + dinner (fixed) + snacks
+- **Daily macros vs targets**: "Keti: 1420/1450 cal, 82/84g protein ✓"
 - **Weekly cost**: total grocery spend for this plan
-- **Consolidated quantities**: "This week needs: 21 eggs, 700g paneer, 2kg rice, 500g moong daal..."
+- **Consolidated quantities**: "This week needs: 21 eggs, 700g paneer, 2kg rice, 500g mixed daal, assorted vegetables..."
 
-The user picks a template (or the app suggests the best fit based on targets), adjusts if needed, and confirms.
-Every day within a week has the **same food** — the plan is per-week, not per-day. This keeps grocery simple.
+The user picks a template (or the app suggests the best fit based on targets), adjusts specific days if needed, and confirms.
 
 ### Step 3: Grocery Days
 Once the weekly plan is confirmed, the app auto-generates a **grocery order split across 2 delivery days**:
@@ -69,6 +77,25 @@ For each grocery order, the app:
 3. **Identifies subscription candidates**: items ordered every week at same quantity → subscribe and save
 4. **Shows total cost**: "This week: ₹1,450 on BigBasket (cheapest) vs ₹1,620 on Blinkit"
 5. Future: **Auto-add to cart** on chosen platform via Playwright/extension
+
+### Restaurant Food Database (Outside Food)
+Separate from the grocery master database. Built from imported Swiggy/Zomato orders (130 orders already imported).
+
+Each restaurant dish has:
+- **Name** (e.g., "Box Paneer Biryani - Meghana Foods")
+- **Cost**: actual price paid
+- **Approx macros**: estimated calories, protein, carbs, fat
+- **Category**:
+  - 🟢 **Healthy**: high protein, balanced macros, real ingredients (e.g., Quinoa Khichdi from EatFit, Ghee Pudi Idli from Rameshwaram Cafe)
+  - 🟡 **Healthy + Slight Cheat**: decent macros but higher calories/fat (e.g., Paneer Biryani from Meghana, Hot Sour Tofu Bowl from Toit)
+  - 🔴 **Cheat**: indulgent, high cal, low protein-per-cal (e.g., Walnut Brownie from Theobroma, Pizza from Domino's, Ice Cream)
+- **Frequency**: how often ordered
+- **Platform**: Swiggy / Zomato
+
+When the user wants to order outside food:
+1. Browse their restaurant database filtered by category (healthy / slight cheat / cheat)
+2. See macros impact: "This adds 450 cal, you have 400 cal budget left today"
+3. Pick and order directly from the app
 
 ---
 
