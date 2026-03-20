@@ -168,38 +168,41 @@ export function RestaurantList({ items: initialItems, householdId }: Props) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Restaurant Food</h1>
-          <p className="text-gray-500">{initialItems.length} dishes tracked</p>
+          <h1 className="text-xl sm:text-2xl font-bold">Restaurant Food</h1>
+          <p className="text-sm text-gray-500">{initialItems.length} dishes tracked</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {unanalyzedCount > 0 && (
             <Button variant="outline" size="sm" onClick={handleAnalyze} disabled={isAnalyzing}>
               {isAnalyzing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing... {analyzeProgress}%
+                  <span className="hidden sm:inline">Analyzing... {analyzeProgress}%</span>
+                  <span className="sm:hidden">{analyzeProgress}%</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="h-4 w-4 mr-2" />
-                  Analyze with AI ({unanalyzedCount})
+                  <span className="hidden sm:inline">Analyze with AI ({unanalyzedCount})</span>
+                  <span className="sm:hidden">Analyze ({unanalyzedCount})</span>
                 </>
               )}
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={handlePopulate} disabled={isPopulating}>
             {isPopulating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            Populate from Orders
+            <span className="hidden sm:inline">Populate from Orders</span>
+            <span className="sm:hidden">Populate</span>
           </Button>
         </div>
       </div>
 
       {/* Search + Filter + Sort */}
       <div className="space-y-3">
-        <div className="flex gap-3 items-center">
-          <div className="relative max-w-sm flex-1">
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+          <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search dishes or restaurants..."
@@ -208,7 +211,7 @@ export function RestaurantList({ items: initialItems, householdId }: Props) {
               className="pl-8"
             />
           </div>
-          <div className="flex gap-1.5 items-center">
+          <div className="flex gap-1.5 items-center flex-wrap">
             <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
             {sortOptions.map(opt => (
               <button

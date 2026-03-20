@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ShoppingCart, RefreshCw, CalendarDays, Truck, Search, Loader2, ExternalLink } from 'lucide-react';
+import { ShoppingCart, RefreshCw, CalendarDays, Truck, Search, Loader2, ExternalLink, Package } from 'lucide-react';
 import { GROCERY_PLATFORMS } from '@/lib/nutrition/constants';
 
 interface GroceryDayItem {
@@ -322,6 +322,130 @@ function DayColumn({
 }
 
 // ---------------------------------------------------------------------------
+// Subscription Suggestions
+// ---------------------------------------------------------------------------
+
+function SubscriptionSuggestions({ items }: { items: MasterFoodItem[] }) {
+  // Find weekly regulars: items with daily_quantity > 0 and cost_per_week > 0
+  const weeklyRegulars = items.filter(
+    (item) => (item.daily_quantity || 0) > 0 && (item.cost_per_week || 0) > 0
+  );
+
+  if (weeklyRegulars.length === 0) return null;
+
+  // Group by preferred_platform
+  const platformGroups = new Map<string, typeof weeklyRegulars>();
+  for (const item of weeklyRegulars) {
+    const platform = item.preferred_platform || 'other';
+    const existing = platformGroups.get(platform) || [];
+    existing.push(item);
+    platformGroups.set(platform, existing);
+  }
+
+  // Sort each group by cost_per_week descending (highest spend first)
+  for (const [, group] of platformGroups) {
+    group.sort((a, b) => (b.cost_per_week || 0) - (a.cost_per_week || 0));
+  }
+
+  // Sort platforms by total spend descending
+  const sortedPlatforms = Array.from(platformGroups.entries()).sort(
+    (a, b) => {
+      const totalA = a[1].reduce((sum, i) => sum + (i.cost_per_week || 0), 0);
+      const totalB = b[1].reduce((sum, i) => sum + (i.cost_per_week || 0), 0);
+      return totalB - totalA;
+    }
+  );
+
+  const totalWeekly = weeklyRegulars.reduce((sum, i) => sum + (i.cost_per_week || 0), 0);
+  const totalMonthly = totalWeekly * 4;
+  const estimatedSavings = Math.round(totalMonthly * 0.05);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <div className="p-1.5 bg-purple-100 rounded-lg">
+            <Package className="h-4 w-4 text-purple-700" />
+          </div>
+          Subscription Suggestions
+        </CardTitle>
+        <p className="text-sm text-gray-500">
+          Save time and money by subscribing to your weekly staples.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {sortedPlatforms.map(([platform, platformItems]) => (
+          <div key={platform}>
+            <div className="flex items-center gap-2 mb-2">
+              <Badge
+                variant="outline"
+                className="text-xs font-semibold"
+                style={{
+                  borderColor: getPlatformColor(platform),
+                  color: getPlatformColor(platform),
+                }}
+              >
+                {getPlatformLabel(platform)}
+              </Badge>
+              <span className="text-xs text-gray-400">Subscriptions</span>
+            </div>
+            <div className="space-y-1.5">
+              {platformItems.map((item) => {
+                const weeklyQty = Math.round((item.daily_quantity || 0) * 7);
+                const weeklyCost = item.cost_per_week || 0;
+                const monthlyCost = weeklyCost * 4;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium">
+                        {item.name}
+                        {item.brand ? ` - ${item.brand}` : ''}
+                      </span>
+                      <span className="text-gray-400 ml-1 text-xs">
+                        ({weeklyQty}/{item.serving_unit || 'unit'} per week)
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <span className="text-xs text-gray-500">
+                        {formatCurrency(weeklyCost)}/wk
+                      </span>
+                      <span className="text-xs text-gray-400 mx-1">&rarr;</span>
+                      <span className="text-xs font-semibold text-purple-700">
+                        {formatCurrency(monthlyCost)}/mo
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        <Separator />
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-purple-50 rounded-lg p-3">
+          <div>
+            <p className="text-sm font-medium text-purple-900">
+              Estimated monthly grocery: {formatCurrency(totalMonthly)}
+            </p>
+            <p className="text-xs text-purple-700">
+              With subscriptions (est. 5% savings): {formatCurrency(totalMonthly - estimatedSavings)}
+            </p>
+          </div>
+          <Badge className="bg-purple-600 text-white shrink-0 self-start sm:self-auto">
+            Save {formatCurrency(estimatedSavings)}/month
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -419,20 +543,21 @@ export function GroceryDays({ items, profileId, householdId }: GroceryDaysProps)
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <CalendarDays className="h-6 w-6" />
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6" />
             Grocery Days
           </h1>
-          <p className="text-gray-500">
+          <p className="text-sm text-gray-500">
             Weekly grocery split across 2 delivery days based on shelf life
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {groceryData && (
             <Button
               variant="outline"
+              size="sm"
               onClick={compareAllPrices}
               disabled={comparingAll}
             >
@@ -441,12 +566,14 @@ export function GroceryDays({ items, profileId, householdId }: GroceryDaysProps)
               ) : (
                 <Search className="h-4 w-4 mr-2" />
               )}
-              {comparingAll ? 'Comparing...' : 'Compare All Prices'}
+              <span className="hidden sm:inline">{comparingAll ? 'Comparing...' : 'Compare All Prices'}</span>
+              <span className="sm:hidden">{comparingAll ? 'Comparing...' : 'Compare'}</span>
             </Button>
           )}
-          <Button onClick={generateGroceryDays} disabled={loading || items.length === 0}>
+          <Button size="sm" onClick={generateGroceryDays} disabled={loading || items.length === 0}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            {groceryData ? 'Regenerate' : 'Generate from Master Database'}
+            <span className="hidden sm:inline">{groceryData ? 'Regenerate' : 'Generate from Master Database'}</span>
+            <span className="sm:hidden">{groceryData ? 'Regenerate' : 'Generate'}</span>
           </Button>
         </div>
       </div>
@@ -565,6 +692,9 @@ export function GroceryDays({ items, profileId, householdId }: GroceryDaysProps)
               </CardContent>
             </Card>
           )}
+
+          {/* Subscription Suggestions */}
+          <SubscriptionSuggestions items={items} />
         </>
       )}
     </div>

@@ -160,13 +160,13 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Family Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="h-6 w-6" />
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Users className="h-5 w-5 sm:h-6 sm:w-6" />
             {householdName}
           </h1>
-          <p className="text-gray-500">
+          <p className="text-sm text-gray-500">
             {members.length} member{members.length !== 1 ? 's' : ''} · Week of {new Date(weekStart).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
           </p>
         </div>
@@ -174,7 +174,8 @@ export default async function DashboardPage() {
           <Link href="/import">
             <Button variant="outline" size="sm">
               <Import className="h-4 w-4 mr-1" />
-              Import Data
+              <span className="hidden sm:inline">Import Data</span>
+              <span className="sm:hidden">Import</span>
             </Button>
           </Link>
           <Link href="/meal-plan">

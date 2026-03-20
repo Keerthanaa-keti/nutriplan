@@ -14,9 +14,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
   DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
-import { Plus, Download, Search, Database, Loader2 } from 'lucide-react';
+import { Plus, Download, Search, Database, Loader2, FileUp, ShoppingBag } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { FoodCatalog } from './food-catalog';
 
 interface MasterFoodItem {
   id: string;
@@ -88,13 +89,31 @@ interface Props {
   householdId: string;
 }
 
+const DEFAULT_NOTION_PAGE_ID = '61bfd0e7-63bf-4396-b35f-3c3df5d8a44f';
+
+interface NotionDatabase {
+  id: string;
+  title: string;
+}
+
 export function MasterTable({ items: initialItems, userId, householdId }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [isPopulating, setIsPopulating] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Notion import state
+  const [notionOpen, setNotionOpen] = useState(false);
+  const [notionPageId, setNotionPageId] = useState(DEFAULT_NOTION_PAGE_ID);
+  const [notionDatabases, setNotionDatabases] = useState<NotionDatabase[]>([]);
+  const [notionLoading, setNotionLoading] = useState(false);
+  const [notionImporting, setNotionImporting] = useState<string | null>(null);
+  const [notionError, setNotionError] = useState<string | null>(null);
+  const [notionResult, setNotionResult] = useState<{ imported: number; skipped: number; errors: number } | null>(null);
+  const [notionStep, setNotionStep] = useState<'page' | 'databases' | 'done'>('page');
 
   // Form state
   const [form, setForm] = useState({
@@ -193,6 +212,194 @@ export function MasterTable({ items: initialItems, userId, householdId }: Props)
     }
   }
 
+  async function handleNotionFetchDatabases() {
+    setNotionLoading(true);
+    setNotionError(null);
+    setNotionDatabases([]);
+    try {
+      const res = await fetch('/api/notion/databases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page_id: notionPageId.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setNotionError(data.error || 'Failed to fetch databases');
+        return;
+      }
+      if (data.databases.length === 0) {
+        setNotionError('No databases found on this page. Make sure the integration is shared with the page.');
+        return;
+      }
+      setNotionDatabases(data.databases);
+      setNotionStep('databases');
+    } catch {
+      setNotionError('Network error. Please try again.');
+    } finally {
+      setNotionLoading(false);
+    }
+  }
+
+  async function handleNotionImport(databaseId: string) {
+    setNotionImporting(databaseId);
+    setNotionError(null);
+    setNotionResult(null);
+    try {
+      const res = await fetch('/api/notion/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          database_id: databaseId,
+          profile_id: userId,
+          household_id: householdId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setNotionError(data.error || 'Import failed');
+        return;
+      }
+      setNotionResult({
+        imported: data.imported || 0,
+        skipped: data.skipped || 0,
+        errors: data.errors || 0,
+      });
+      setNotionStep('done');
+      router.refresh();
+    } catch {
+      setNotionError('Network error during import. Please try again.');
+    } finally {
+      setNotionImporting(null);
+    }
+  }
+
+  function resetNotionDialog() {
+    setNotionStep('page');
+    setNotionDatabases([]);
+    setNotionError(null);
+    setNotionResult(null);
+    setNotionImporting(null);
+    setNotionPageId(DEFAULT_NOTION_PAGE_ID);
+  }
+
+  function renderNotionDialog() {
+    return (
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Import from Notion</DialogTitle>
+          <DialogDescription>
+            Import your food items from a Notion database into your master list.
+          </DialogDescription>
+        </DialogHeader>
+
+        {notionStep === 'page' && (
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="notion-page-id">Notion Page ID</Label>
+              <Input
+                id="notion-page-id"
+                placeholder="e.g., 61bfd0e7-63bf-4396-b35f-3c3df5d8a44f"
+                value={notionPageId}
+                onChange={e => setNotionPageId(e.target.value)}
+                className="mt-1 font-mono text-sm"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                The page ID from your Notion URL. The integration must be shared with this page.
+              </p>
+            </div>
+            {notionError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+                {notionError}
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                onClick={handleNotionFetchDatabases}
+                disabled={notionLoading || !notionPageId.trim()}
+              >
+                {notionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+                Find Databases
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {notionStep === 'databases' && (
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-gray-500">
+              Found {notionDatabases.length} database{notionDatabases.length !== 1 ? 's' : ''} on this page.
+              Click Import to bring items into your master list.
+            </p>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {notionDatabases.map(db => (
+                <div
+                  key={db.id}
+                  className="flex items-center justify-between border rounded-lg px-4 py-3 hover:bg-gray-50"
+                >
+                  <div>
+                    <p className="font-medium text-sm">{db.title}</p>
+                    <p className="text-xs text-gray-400 font-mono">{db.id}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleNotionImport(db.id)}
+                    disabled={notionImporting !== null}
+                  >
+                    {notionImporting === db.id ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-1" />
+                    )}
+                    Import
+                  </Button>
+                </div>
+              ))}
+            </div>
+            {notionError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+                {notionError}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => { setNotionStep('page'); setNotionError(null); }}>
+                Back
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {notionStep === 'done' && notionResult && (
+          <div className="space-y-4 py-2">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-green-800 font-medium text-sm">Import Complete</p>
+              <div className="mt-2 space-y-1 text-sm text-green-700">
+                <p>{notionResult.imported} item{notionResult.imported !== 1 ? 's' : ''} imported/updated</p>
+                {notionResult.skipped > 0 && (
+                  <p>{notionResult.skipped} row{notionResult.skipped !== 1 ? 's' : ''} skipped (empty name)</p>
+                )}
+                {notionResult.errors > 0 && (
+                  <p className="text-red-600">{notionResult.errors} error{notionResult.errors !== 1 ? 's' : ''}</p>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setNotionOpen(false); resetNotionDialog(); }}>
+                Close
+              </Button>
+              <Button onClick={() => { setNotionStep('databases'); setNotionResult(null); }}>
+                Import Another
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    );
+  }
+
+  const existingItemNames = useMemo(() => {
+    return initialItems.map(item => item.name);
+  }, [initialItems]);
+
   const formatNum = (n: number | null, decimals = 0) => {
     if (n === null || n === undefined) return '-';
     return decimals > 0 ? n.toFixed(decimals) : Math.round(n).toString();
@@ -213,19 +420,37 @@ export function MasterTable({ items: initialItems, userId, householdId }: Props)
               Get started by importing your order history or adding items manually.
               Your master database tracks everything you eat with macros, costs, and daily quantities.
             </p>
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center flex-wrap">
               <Button onClick={handlePopulate} disabled={isPopulating} variant="outline">
                 {isPopulating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
                 Auto-populate from Orders
               </Button>
+              <Dialog open={notionOpen} onOpenChange={(open) => { setNotionOpen(open); if (!open) resetNotionDialog(); }}>
+                <DialogTrigger render={<Button variant="outline" />}>
+                  <FileUp className="h-4 w-4 mr-2" />
+                  Import from Notion
+                </DialogTrigger>
+                {renderNotionDialog()}
+              </Dialog>
+              <Button onClick={() => setCatalogOpen(true)} variant="default">
+                <ShoppingBag className="h-4 w-4 mr-2" />
+                Browse Catalog
+              </Button>
               <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                <DialogTrigger render={<Button />}>
+                <DialogTrigger render={<Button variant="outline" />}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Item
                 </DialogTrigger>
                 {renderAddDialog()}
               </Dialog>
             </div>
+            <FoodCatalog
+              open={catalogOpen}
+              onOpenChange={setCatalogOpen}
+              userId={userId}
+              householdId={householdId}
+              existingItemNames={existingItemNames}
+            />
           </CardContent>
         </Card>
       </div>
@@ -319,18 +544,32 @@ export function MasterTable({ items: initialItems, userId, householdId }: Props)
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Master Database</h1>
-          <p className="text-gray-500">{initialItems.length} items in your database</p>
+          <h1 className="text-xl sm:text-2xl font-bold">Master Database</h1>
+          <p className="text-sm text-gray-500">{initialItems.length} items in your database</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handlePopulate} disabled={isPopulating}>
             {isPopulating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            Auto-populate from Orders
+            <span className="hidden sm:inline">Auto-populate from Orders</span>
+            <span className="sm:hidden">Auto-populate</span>
+          </Button>
+          <Dialog open={notionOpen} onOpenChange={(open) => { setNotionOpen(open); if (!open) resetNotionDialog(); }}>
+            <DialogTrigger render={<Button variant="outline" size="sm" />}>
+              <FileUp className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Import from Notion</span>
+              <span className="sm:hidden">Notion</span>
+            </DialogTrigger>
+            {renderNotionDialog()}
+          </Dialog>
+          <Button size="sm" onClick={() => setCatalogOpen(true)}>
+            <ShoppingBag className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Browse Catalog</span>
+            <span className="sm:hidden">Catalog</span>
           </Button>
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger render={<Button size="sm" />}>
+            <DialogTrigger render={<Button variant="outline" size="sm" />}>
               <Plus className="h-4 w-4 mr-2" />
               Add Item
             </DialogTrigger>
@@ -338,6 +577,15 @@ export function MasterTable({ items: initialItems, userId, householdId }: Props)
           </Dialog>
         </div>
       </div>
+
+      {/* Food Catalog Dialog */}
+      <FoodCatalog
+        open={catalogOpen}
+        onOpenChange={setCatalogOpen}
+        userId={userId}
+        householdId={householdId}
+        existingItemNames={existingItemNames}
+      />
 
       {/* Search + Category Filters */}
       <div className="space-y-3">
@@ -369,8 +617,8 @@ export function MasterTable({ items: initialItems, userId, householdId }: Props)
 
       {/* Table */}
       <Card>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table className="min-w-[800px]">
             <TableHeader>
               <TableRow className="bg-gray-50/80">
                 <TableHead className="font-semibold">Name</TableHead>

@@ -209,19 +209,19 @@ export function WeeklyPlanView({
 
       {/* Person tabs */}
       {profiles.length > 1 && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {profiles.map(p => (
             <button
               key={p.id}
               onClick={() => setActiveProfile(p.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeProfile === p.id
                   ? 'bg-green-700 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
               {p.full_name}
-              <span className="ml-2 opacity-70">{p.target_calories} kcal</span>
+              <span className="ml-1 sm:ml-2 opacity-70 hidden sm:inline">{p.target_calories} kcal</span>
             </button>
           ))}
         </div>
@@ -230,14 +230,14 @@ export function WeeklyPlanView({
       {/* Weekly overview bar */}
       <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
         <CardContent className="py-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <p className="text-xs text-gray-500 uppercase font-medium">Weekly Average</p>
               <p className="text-lg font-bold">
                 {Math.round(weeklyTotals.calories / 7)} kcal/day
               </p>
             </div>
-            <div className="flex gap-6 text-sm">
+            <div className="flex gap-4 sm:gap-6 text-sm">
               <div className="text-center">
                 <p className="font-bold text-blue-600">{Math.round(weeklyTotals.protein / 7)}g</p>
                 <p className="text-[10px] text-gray-400">protein/day</p>
@@ -293,7 +293,7 @@ export function WeeklyPlanView({
                 </div>
               </CardHeader>
               <CardContent className="px-4 pb-3">
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {MEAL_ORDER.map(mt => {
                     const items = getItemsForDayMeal(dayIndex, mt);
                     return (

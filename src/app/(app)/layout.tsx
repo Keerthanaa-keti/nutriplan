@@ -21,8 +21,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen bg-gray-50">
       <SidebarNav userName={profile?.full_name || user.email || ''} />
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-7xl mx-auto p-6">
+      <main className="flex-1 overflow-auto pt-[57px] pb-[60px] md:pt-0 md:pb-0">
+        <div className="max-w-7xl mx-auto p-4 md:p-6">
           {children}
         </div>
       </main>
